@@ -1,6 +1,5 @@
 .idea
 
-dist
 node_modules
 
 rollup-plugin-dts-imports-*.tgz
