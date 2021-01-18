@@ -1,0 +1,43 @@
+{
+  "name": "rollup-plugin-dts-imports",
+  "version": "1.0.0",
+  "description": "A Rollup plugin that resolves imports in *.d.ts files when tsconfig paths were used",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "scripts": {
+    "build": "rollup -c",
+    "build-n-pack": "rollup -c && npm pack"
+  },
+  "keywords": [
+    "rollup",
+    "plugin",
+    "typescript",
+    "declaration",
+    "import",
+    "paths"
+  ],
+  "author": "Konstantin Krylov",
+  "license": "ISC",
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^17.0.0",
+    "@rollup/plugin-node-resolve": "^11.1.0",
+    "@types/node": "^14.14.21",
+    "@typescript-eslint/eslint-plugin": "^4.13.0",
+    "@typescript-eslint/parser": "^4.13.0",
+    "eslint": "^7.18.0",
+    "rollup": "^2.36.2",
+    "rollup-plugin-delete": "^2.0.0",
+    "rollup-plugin-peer-deps-external": "^2.2.4",
+    "rollup-plugin-typescript2": "^0.29.0",
+    "standardx": "^7.0.0",
+    "tslib": "^2.1.0",
+    "typescript": "*"
+  },
+  "peerDependencies": {
+    "typescript": "^3.9.5||^4.0.5"
+  },
+  "files": [
+    "dist",
+    "readme.md"
+  ]
+}
