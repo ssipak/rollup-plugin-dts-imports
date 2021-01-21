@@ -1,17 +1,23 @@
+import path from 'path';
 import { isAsset } from './guards';
 import { NormalizedOutputOptions, OutputAsset, OutputBundle, PluginContext } from 'rollup';
-import { DtsImportsOptions, DtsImportsPathResolver, DtsImportsPaths } from './types';
-import ts, { isExportDeclaration, isImportDeclaration, isStringLiteral, ScriptTarget } from 'typescript';
-import path from 'path';
-import { convertPathsEntry, escapeRegExp, throwDiagnostics } from './utils';
+import { DtsImportsOptions, DtsImportsPaths } from './types';
+import ts, {
+  isExportDeclaration,
+  isImportDeclaration,
+  isStringLiteral,
+  ParsedCommandLine,
+  ScriptTarget
+} from 'typescript';
+import { convertPathsEntry, prepareAliasNormalizer, relativePath as resolveRelPath, throwDiagnostics } from './utils';
 
 export class DtsImportPlugin {
   private context?: PluginContext;
   private readonly project: string;
   private readonly aliasRoot: string;
-  private paths: DtsImportsPaths
+  private paths: DtsImportsPaths;
   private readonly importPaths: boolean;
-  private resolver: DtsImportsPathResolver = (d, i) => i
+  private normalize: (path: string) => string = x => x;
 
   public constructor (options: DtsImportsOptions = {}) {
     this.project = options.project ?? './tsconfig.json';
@@ -23,7 +29,7 @@ export class DtsImportPlugin {
   public setup (context: PluginContext): void {
     this.context = context;
     this.extractPaths();
-    this.prepareResolver();
+    this.normalize = prepareAliasNormalizer(this.paths);
   }
 
   public generateBundle (options: NormalizedOutputOptions, bundle: OutputBundle): void {
@@ -35,40 +41,7 @@ export class DtsImportPlugin {
       .forEach(this.processFile.bind(this));
   }
 
-  private prepareResolver (): void {
-    const SEP = escapeRegExp(path.sep);
-
-    const subFn = this.paths
-      .map(([from, to]) => {
-        const pattern = `^${escapeRegExp(from)}(?=${SEP}|$)`;
-        const regex = new RegExp(pattern);
-        return (str: string) => str.replace(regex, to);
-      })
-      .reduce((acc, fn) => (str) => fn(acc(str)));
-
-    this.resolver = (currentFilename, importedFilename) => {
-      const substitutedFilename = subFn(importedFilename);
-      if (substitutedFilename === importedFilename) {
-        return importedFilename;
-      }
-
-      let relDir = path.relative(
-        path.dirname(currentFilename),
-        path.dirname(substitutedFilename)
-      );
-
-      if (!path.isAbsolute(relDir) && !relDir.startsWith('.')) {
-        relDir = `.${path.sep}${relDir}`;
-      }
-
-      return path.format({
-        dir: relDir,
-        base: path.basename(substitutedFilename)
-      });
-    };
-  }
-
-  private processFile (asset: OutputAsset) {
+  private processFile (asset: OutputAsset): void {
     const file = ts.createSourceFile(asset.fileName, asset.source.toString(), ScriptTarget.Latest);
 
     const declarationPath = path.join(this.aliasRoot, asset.fileName);
@@ -89,7 +62,14 @@ export class DtsImportPlugin {
         return;
       }
 
-      moduleSpecifier.text = this.resolver(declarationPath, moduleSpecifier.text);
+      const originalPath = moduleSpecifier.text;
+      const normalizedPath = this.normalize(originalPath);
+
+      if (normalizedPath === originalPath) {
+        return;
+      }
+
+      moduleSpecifier.text = resolveRelPath(declarationPath, normalizedPath, true);
     });
 
     asset.source = ts.createPrinter().printFile(file);
@@ -97,19 +77,27 @@ export class DtsImportPlugin {
 
   private extractPaths (): void {
     if (this.importPaths) {
-      const configFile = ts.readConfigFile(this.project, ts.sys.readFile);
-      const compilerOptions = ts.parseJsonConfigFileContent(configFile.config, ts.sys, './');
-
-      throwDiagnostics(compilerOptions);
-
-      const tsPaths = compilerOptions.options.paths ?? {};
+      const tsPaths = this.readTsConfig().options.paths ?? {};
       const paths = Object.entries(tsPaths).map(convertPathsEntry);
 
       this.paths = this.paths.concat(paths);
     }
 
     if (this.paths.length === 0) {
-      console.warn("Paths' list is empty");
+      console.warn('Paths\' list is empty');
     }
+  }
+
+  private tsConfig?: ParsedCommandLine;
+
+  private readTsConfig (): ParsedCommandLine {
+    if (this.tsConfig) {
+      return this.tsConfig;
+    }
+
+    const configFile = ts.readConfigFile(this.project, ts.sys.readFile);
+    const compilerOptions = ts.parseJsonConfigFileContent(configFile.config, ts.sys, './');
+    throwDiagnostics(compilerOptions);
+    return (this.tsConfig = compilerOptions);
   }
 }

@@ -1,5 +1,5 @@
-import ts, { ScriptTarget, isImportDeclaration, isExportDeclaration, isStringLiteral } from 'typescript';
 import path from 'path';
+import ts, { ScriptTarget, isImportDeclaration, isExportDeclaration, isStringLiteral } from 'typescript';
 
 function isAsset(e) {
     return e.type === 'asset';
@@ -36,20 +36,43 @@ function convertPathsEntry([alias, paths]) {
 function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+function relativePath(fromFile, toFile, prependWithDot) {
+    let relDir = path.relative(path.dirname(fromFile), path.dirname(toFile));
+    if (prependWithDot && !path.isAbsolute(relDir) && !relDir.startsWith('.')) {
+        relDir = `.${path.sep}${relDir}`;
+    }
+    return path.format({
+        dir: relDir,
+        base: path.basename(toFile)
+    });
+}
+function prepareAliasNormalizer(paths) {
+    if (paths.length === 0) {
+        return x => x;
+    }
+    const SEP = escapeRegExp(path.sep);
+    return paths
+        .map(([from, to]) => {
+        const pattern = `^${escapeRegExp(from)}(?=${SEP}|$)`;
+        const regex = new RegExp(pattern);
+        return (str) => str.replace(regex, to);
+    })
+        .reduce((acc, fn) => (str) => fn(acc(str)));
+}
 
 class DtsImportPlugin {
     constructor(options = {}) {
         var _a, _b, _c, _d;
-        this.resolver = (d, i) => i;
+        this.normalize = x => x;
         this.project = (_a = options.project) !== null && _a !== void 0 ? _a : './tsconfig.json';
-        this.aliasRoot = (_b = options.aliasRoot) !== null && _b !== void 0 ? _b : '.src';
+        this.aliasRoot = (_b = options.aliasRoot) !== null && _b !== void 0 ? _b : './src';
         this.paths = Object.entries((_c = options.paths) !== null && _c !== void 0 ? _c : {});
         this.importPaths = (_d = options.importPaths) !== null && _d !== void 0 ? _d : true;
     }
     setup(context) {
         this.context = context;
         this.extractPaths();
-        this.prepareResolver();
+        this.normalize = prepareAliasNormalizer(this.paths);
     }
     generateBundle(options, bundle) {
         Object
@@ -58,30 +81,6 @@ class DtsImportPlugin {
             .map(x => bundle[x])
             .filter(isAsset)
             .forEach(this.processFile.bind(this));
-    }
-    prepareResolver() {
-        const SEP = escapeRegExp(path.sep);
-        const subFn = this.paths
-            .map(([from, to]) => {
-            const pattern = `^${escapeRegExp(from)}(?=${SEP}|$)`;
-            const regex = new RegExp(pattern);
-            return (str) => str.replace(regex, to);
-        })
-            .reduce((acc, fn) => (str) => fn(acc(str)));
-        this.resolver = (currentFilename, importedFilename) => {
-            const substitutedFilename = subFn(importedFilename);
-            if (substitutedFilename === importedFilename) {
-                return importedFilename;
-            }
-            let relDir = path.relative(path.dirname(currentFilename), path.dirname(substitutedFilename));
-            if (!path.isAbsolute(relDir) && !relDir.startsWith('.')) {
-                relDir = `.${path.sep}${relDir}`;
-            }
-            return path.format({
-                dir: relDir,
-                base: path.basename(substitutedFilename)
-            });
-        };
     }
     processFile(asset) {
         const file = ts.createSourceFile(asset.fileName, asset.source.toString(), ScriptTarget.Latest);
@@ -98,23 +97,34 @@ class DtsImportPlugin {
                 console.warn('Module specifier is not a string literal');
                 return;
             }
-            moduleSpecifier.text = this.resolver(declarationPath, moduleSpecifier.text);
+            const originalPath = moduleSpecifier.text;
+            const normalizedPath = this.normalize(originalPath);
+            if (normalizedPath === originalPath) {
+                return;
+            }
+            moduleSpecifier.text = relativePath(declarationPath, normalizedPath, true);
         });
         asset.source = ts.createPrinter().printFile(file);
     }
     extractPaths() {
         var _a;
         if (this.importPaths) {
-            const configFile = ts.readConfigFile(this.project, ts.sys.readFile);
-            const compilerOptions = ts.parseJsonConfigFileContent(configFile.config, ts.sys, './');
-            throwDiagnostics(compilerOptions);
-            const tsPaths = (_a = compilerOptions.options.paths) !== null && _a !== void 0 ? _a : {};
+            const tsPaths = (_a = this.readTsConfig().options.paths) !== null && _a !== void 0 ? _a : {};
             const paths = Object.entries(tsPaths).map(convertPathsEntry);
             this.paths = this.paths.concat(paths);
         }
         if (this.paths.length === 0) {
-            console.warn("Paths' list is empty");
+            console.warn('Paths\' list is empty');
         }
+    }
+    readTsConfig() {
+        if (this.tsConfig) {
+            return this.tsConfig;
+        }
+        const configFile = ts.readConfigFile(this.project, ts.sys.readFile);
+        const compilerOptions = ts.parseJsonConfigFileContent(configFile.config, ts.sys, './');
+        throwDiagnostics(compilerOptions);
+        return (this.tsConfig = compilerOptions);
     }
 }
 

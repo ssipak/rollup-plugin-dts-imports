@@ -6,11 +6,12 @@ export declare class DtsImportPlugin {
     private readonly aliasRoot;
     private paths;
     private readonly importPaths;
-    private resolver;
+    private normalize;
     constructor(options?: DtsImportsOptions);
     setup(context: PluginContext): void;
     generateBundle(options: NormalizedOutputOptions, bundle: OutputBundle): void;
-    private prepareResolver;
     private processFile;
     private extractPaths;
+    private tsConfig?;
+    private readTsConfig;
 }

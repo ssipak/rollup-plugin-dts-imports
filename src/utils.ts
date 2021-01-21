@@ -1,5 +1,6 @@
 import { Diagnostic, DiagnosticMessageChain, ParsedCommandLine } from 'typescript';
-import exp from 'constants';
+import path from 'path';
+import { DtsImportsPaths } from './types';
 
 export function throwDiagnostics (opts: ParsedCommandLine | Diagnostic | DiagnosticMessageChain | string): void {
   if (typeof opts === 'string') {
@@ -39,4 +40,36 @@ export function convertPathsEntry ([alias, paths]: [string, string[]]): [string,
 
 export function escapeRegExp (string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function relativePath (fromFile: string, toFile: string, prependWithDot: boolean): string {
+  let relDir = path.relative(
+    path.dirname(fromFile),
+    path.dirname(toFile)
+  );
+
+  if (prependWithDot && !path.isAbsolute(relDir) && !relDir.startsWith('.')) {
+    relDir = `.${path.sep}${relDir}`;
+  }
+
+  return path.format({
+    dir: relDir,
+    base: path.basename(toFile)
+  });
+}
+
+export function prepareAliasNormalizer (paths: DtsImportsPaths): (path: string) => string {
+  if (paths.length === 0) {
+    return x => x;
+  }
+
+  const SEP = escapeRegExp(path.sep);
+
+  return paths
+    .map(([from, to]) => {
+      const pattern = `^${escapeRegExp(from)}(?=${SEP}|$)`;
+      const regex = new RegExp(pattern);
+      return (str: string) => str.replace(regex, to);
+    })
+    .reduce((acc, fn) => (str) => fn(acc(str)));
 }
