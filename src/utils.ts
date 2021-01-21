@@ -1,4 +1,5 @@
 import { Diagnostic, DiagnosticMessageChain, ParsedCommandLine } from 'typescript';
+import exp from 'constants';
 
 export function throwDiagnostics (opts: ParsedCommandLine | Diagnostic | DiagnosticMessageChain | string): void {
   if (typeof opts === 'string') {
@@ -15,7 +16,7 @@ export function throwDiagnostics (opts: ParsedCommandLine | Diagnostic | Diagnos
   return throwDiagnostics(opts.errors[0] ?? '');
 }
 
-export function validateTsPaths (paths: string[]): void {
+function validateTsPaths (paths: string[]): void {
   if (paths.length !== 1) {
     throw new Error(
       'Plugin doesn\'t support multiple paths for single alias'
@@ -23,8 +24,17 @@ export function validateTsPaths (paths: string[]): void {
   }
 }
 
-export function transformTsPath (path: string): string {
+function transformTsPath (path: string): string {
   return path.replace(/\/\*$/, '');
+}
+
+export function convertPathsEntry ([alias, paths]: [string, string[]]): [string, string] {
+  validateTsPaths(paths);
+
+  return [
+    transformTsPath(alias),
+    transformTsPath(paths[0])
+  ];
 }
 
 export function escapeRegExp (string: string): string {
