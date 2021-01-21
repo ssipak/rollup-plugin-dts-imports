@@ -1,5 +1,5 @@
 import path from 'path';
-import ts, { isImportDeclaration, isStringLiteral, ScriptTarget } from 'typescript';
+import ts, { isExportDeclaration, isImportDeclaration, isStringLiteral, ScriptTarget } from 'typescript';
 import { OutputAsset, Plugin } from 'rollup';
 import { DtsImportsOptions, DtsImportsPathResolver, DtsImportsPaths } from './types';
 import { isAsset } from './guards';
@@ -122,11 +122,15 @@ function process (aliasRoot: string, resolveFn: DtsImportsPathResolver) {
     const declarationPath = path.join(aliasRoot, asset.fileName);
 
     file.forEachChild(node => {
-      if (!isImportDeclaration(node)) {
+      if (!(isImportDeclaration(node) || isExportDeclaration(node))) {
         return;
       }
 
       const { moduleSpecifier } = node;
+
+      if (!moduleSpecifier) {
+        return;
+      }
 
       if (!isStringLiteral(moduleSpecifier)) {
         console.warn('Module specifier is not a string literal');

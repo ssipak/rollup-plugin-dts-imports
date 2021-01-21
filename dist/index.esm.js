@@ -1,5 +1,5 @@
 import path from 'path';
-import ts, { ScriptTarget, isImportDeclaration, isStringLiteral } from 'typescript';
+import ts, { ScriptTarget, isImportDeclaration, isExportDeclaration, isStringLiteral } from 'typescript';
 
 function isAsset(e) {
     return e.type === 'asset';
@@ -118,10 +118,13 @@ function process(aliasRoot, resolveFn) {
         const file = ts.createSourceFile(asset.fileName, asset.source.toString(), ScriptTarget.Latest);
         const declarationPath = path.join(aliasRoot, asset.fileName);
         file.forEachChild(node => {
-            if (!isImportDeclaration(node)) {
+            if (!(isImportDeclaration(node) || isExportDeclaration(node))) {
                 return;
             }
             const { moduleSpecifier } = node;
+            if (!moduleSpecifier) {
+                return;
+            }
             if (!isStringLiteral(moduleSpecifier)) {
                 console.warn('Module specifier is not a string literal');
                 return;

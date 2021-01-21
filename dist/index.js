@@ -127,10 +127,13 @@ function process(aliasRoot, resolveFn) {
         const file = ts__default['default'].createSourceFile(asset.fileName, asset.source.toString(), ts.ScriptTarget.Latest);
         const declarationPath = path__default['default'].join(aliasRoot, asset.fileName);
         file.forEachChild(node => {
-            if (!ts.isImportDeclaration(node)) {
+            if (!(ts.isImportDeclaration(node) || ts.isExportDeclaration(node))) {
                 return;
             }
             const { moduleSpecifier } = node;
+            if (!moduleSpecifier) {
+                return;
+            }
             if (!ts.isStringLiteral(moduleSpecifier)) {
                 console.warn('Module specifier is not a string literal');
                 return;
