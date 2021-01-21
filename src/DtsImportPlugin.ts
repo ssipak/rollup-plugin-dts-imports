@@ -15,7 +15,7 @@ export class DtsImportPlugin {
 
   public constructor (options: DtsImportsOptions = {}) {
     this.project = options.project ?? './tsconfig.json';
-    this.aliasRoot = options.aliasRoot ?? '.src';
+    this.aliasRoot = options.aliasRoot ?? './src';
     this.paths = Object.entries(options.paths ?? {});
     this.importPaths = options.importPaths ?? true;
   }
