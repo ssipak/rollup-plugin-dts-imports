@@ -1,4 +1,4 @@
-export type DtsImportsPaths = [alias: string, path: string][]
+export type DtsImportsPaths = [string, string][]
 
 export interface DtsImportsOptions {
     paths?: { [alias: string]: string }
