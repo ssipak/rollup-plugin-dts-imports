@@ -18,12 +18,14 @@ export class DtsImportPlugin {
   private paths: DtsImportsPaths;
   private readonly importPaths: boolean;
   private normalize: (path: string) => string = x => x;
+  private debug: boolean;
 
   public constructor (options: DtsImportsOptions = {}) {
     this.project = options.project ?? './tsconfig.json';
     this.aliasRoot = options.aliasRoot ?? './src';
     this.paths = Object.entries(options.paths ?? {});
     this.importPaths = options.importPaths ?? true;
+    this.debug = options.debug ?? false;
   }
 
   public setup (context: PluginContext): void {
@@ -42,6 +44,10 @@ export class DtsImportPlugin {
   }
 
   private processFile (asset: OutputAsset): void {
+    if (this.debug) {
+      console.debug(`Process ${asset.fileName}`);
+    }
+
     const file = ts.createSourceFile(asset.fileName, asset.source.toString(), ScriptTarget.Latest);
 
     const declarationPath = path.join(this.aliasRoot, asset.fileName);
@@ -64,6 +70,10 @@ export class DtsImportPlugin {
 
       const originalPath = moduleSpecifier.text;
       const normalizedPath = this.normalize(originalPath);
+
+      if (this.debug) {
+        console.debug(`Import ${originalPath} turns into ${normalizedPath}`);
+      }
 
       if (normalizedPath === originalPath) {
         return;

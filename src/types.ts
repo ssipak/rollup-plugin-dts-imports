@@ -5,6 +5,7 @@ export interface DtsImportsOptions {
     aliasRoot?: string
     importPaths?: boolean
     project?: string
+    debug?: boolean
 }
 
 export type DtsImportsPathResolver = (declarationPath: string, importPath: string) => string

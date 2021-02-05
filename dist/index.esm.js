@@ -62,12 +62,13 @@ function prepareAliasNormalizer(paths) {
 
 class DtsImportPlugin {
     constructor(options = {}) {
-        var _a, _b, _c, _d;
+        var _a, _b, _c, _d, _e;
         this.normalize = x => x;
         this.project = (_a = options.project) !== null && _a !== void 0 ? _a : './tsconfig.json';
         this.aliasRoot = (_b = options.aliasRoot) !== null && _b !== void 0 ? _b : './src';
         this.paths = Object.entries((_c = options.paths) !== null && _c !== void 0 ? _c : {});
         this.importPaths = (_d = options.importPaths) !== null && _d !== void 0 ? _d : true;
+        this.debug = (_e = options.debug) !== null && _e !== void 0 ? _e : false;
     }
     setup(context) {
         this.context = context;
@@ -83,6 +84,9 @@ class DtsImportPlugin {
             .forEach(this.processFile.bind(this));
     }
     processFile(asset) {
+        if (this.debug) {
+            console.debug(`Process ${asset.fileName}`);
+        }
         const file = ts.createSourceFile(asset.fileName, asset.source.toString(), ScriptTarget.Latest);
         const declarationPath = path.join(this.aliasRoot, asset.fileName);
         file.forEachChild(node => {
@@ -99,6 +103,9 @@ class DtsImportPlugin {
             }
             const originalPath = moduleSpecifier.text;
             const normalizedPath = this.normalize(originalPath);
+            if (this.debug) {
+                console.debug(`Import ${originalPath} turns into ${normalizedPath}`);
+            }
             if (normalizedPath === originalPath) {
                 return;
             }

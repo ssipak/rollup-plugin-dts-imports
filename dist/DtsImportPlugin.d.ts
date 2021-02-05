@@ -7,6 +7,7 @@ export declare class DtsImportPlugin {
     private paths;
     private readonly importPaths;
     private normalize;
+    private debug;
     constructor(options?: DtsImportsOptions);
     setup(context: PluginContext): void;
     generateBundle(options: NormalizedOutputOptions, bundle: OutputBundle): void;
